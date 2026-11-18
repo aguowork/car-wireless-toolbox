@@ -8,12 +8,12 @@
 
 ## 下载与安装
 
-在 [Releases](https://github.com/aguowork/car-wireless-toolbox/releases) 的 **Assets** 中下载 `车机无线助手-v2.9.9.apk`，通过 U 盘或已有的传输方式复制到车机，再使用车机的安装器安装。
+在 [Releases](https://github.com/aguowork/car-wireless-toolbox/releases) 的 **Assets** 中选择显示为「车机无线助手-v2.9.9.apk」的附件，通过 U 盘或已有的传输方式复制到车机，再使用车机的安装器安装。GitHub 会过滤附件文件名中的中文，实际下载文件名为 `car-wireless-toolbox-v2.9.9.apk`。
 
 如果车机已连接 ADB，也可以运行：
 
 ```bash
-adb install -r "车机无线助手-v2.9.9.apk"
+adb install -r "car-wireless-toolbox-v2.9.9.apk"
 ```
 
 覆盖安装需要新旧 APK 使用相同签名。自行构建的安装包与本项目发布包签名不同，处理方式见[签名配置](docs/SIGNING.md#覆盖安装与签名不一致)。
