@@ -1,0 +1,57 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.carwireless.toolbox'
+    compileSdk 35
+    buildToolsVersion '36.0.0'
+
+    defaultConfig {
+        applicationId 'com.carwireless.toolbox'
+        minSdk 17
+        targetSdk 28
+        versionCode 34
+        versionName '2.9.9'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        release {
+            def propsFile = rootProject.file('signing.properties')
+            if (propsFile.exists()) {
+                def props = new Properties()
+                propsFile.withInputStream { props.load(it) }
+                storeFile file(props['storeFile'])
+                storePassword props['storePassword']
+                keyAlias props['keyAlias']
+                keyPassword props['keyPassword']
+            }
+            v1SigningEnabled true
+            v2SigningEnabled true
+            enableV3Signing false
+            enableV4Signing false
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    lint {
+        abortOnError true
+        disable 'ExpiredTargetSdkVersion'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:-options']
+}

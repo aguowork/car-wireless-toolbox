@@ -1,0 +1,24 @@
+# 构建产物
+build/
+app/build/
+*.apk
+*.aab
+
+# 签名与本地配置（含口令，绝不能提交）
+signing.properties
+*.jks
+*.keystore
+local.properties
+
+# Gradle / IDE
+.gradle/
+gradle-app.setting
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 系统
+.DS_Store
+Thumbs.db

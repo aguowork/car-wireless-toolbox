@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B0F14">
+<meta name="format-detection" content="telephone=no">
+<title>车机文件传输</title>
+<style>
+  /* 这套页面的用户只有一种：站在车旁边、单手拿手机的司机。
+     所以按移动端先设计——点按目标不小于 32px，名字单行省略，操作在右手边。 */
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0 auto; max-width: 640px; background: #0B0F14; color: #F2F6FA;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px; line-height: 1.5;
+    padding: 16px 16px calc(32px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 3px; letter-spacing: .3px; }
+  .sub { font-size: 12.5px; color: #7A8A9A; margin: 0; }
+  input[type=file] { display: none; }
+
+  /* ---------------------------------------------------------------- 上传 */
+  .pick {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    min-height: 84px; margin-top: 14px; padding: 16px;
+    border: 2px dashed #263039; border-radius: 14px; background: #151B22; cursor: pointer;
+    transition: background .12s, border-color .12s;
+  }
+  .pick:active { background: #1D252E; border-color: #2DD4BF; }
+  .plus { font-size: 24px; line-height: 1; color: #2DD4BF; font-weight: 300; }
+  .pick-text { display: flex; flex-direction: column; }
+  .pick-title { font-size: 15px; color: #C9D5E0; }
+  .pick-hint { font-size: 11.5px; color: #6F8091; margin-top: 1px; }
+
+  /* ---------------------------------------------------------------- 列表项：一行一个文件 */
+  .item {
+    background: #151B22; border: 1.5px solid #263039; border-radius: 12px;
+    padding: 9px 11px; margin-top: 7px; position: relative; overflow: hidden;
+    transition: background .15s, border-color .15s;
+  }
+  /* 「上膛」状态：整张卡变红，只剩一个确认键，1 秒后自己收回 */
+  .item.armed { background: #2A1416; border-color: #7F2D33; }
+  .item.armed .name { color: #FCA5A5; }
+  .item.armed .size { color: #B4696E; }
+  .timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #3A1D20; }
+  .timer > i { display: block; height: 100%; width: 100%; background: #F87171; transition: width 1s linear; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .meta { flex: 1; min-width: 0; }
+  .name {
+    font-size: 14px; color: #E8EFF6; line-height: 1.35;
+    display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .size { font-size: 11.5px; color: #7A8A9A; margin-top: 1px; }
+  .ok { color: #2DD4BF; }
+  .err { color: #F87171; }
+
+  /* 按钮做成 32px 高的小胶囊：文件多了不至于每屏只能看四五条 */
+  .acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .act {
+    height: 32px; padding: 0 12px; border-radius: 16px; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; font-family: inherit; white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #123B39; border: 1.5px solid #1E5B56; color: #2DD4BF;
+    text-decoration: none;
+  }
+  .act:active { background: #17514D; }
+  .act.danger { background: #241417; border-color: #4A2A2E; color: #F87171; }
+  .act.danger:active { background: #332025; }
+  /* 上膛后的确认键：整块红底，比平时的胶囊更重 */
+  .act.wide {
+    padding: 0 18px; background: #7F1D1D; border-color: #B91C1C; color: #FEE2E2;
+  }
+  .act.wide:active { background: #991B1B; }
+  .pending { font-size: 12px; color: #7A8A9A; }
+
+  .bar { height: 4px; background: #263039; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: #2DD4BF; transition: width .15s linear; }
+
+  /* ---------------------------------------------------------------- 分节标题 */
+  .section { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 0; }
+  .section h2 { font-size: 12.5px; font-weight: 400; color: #7A8A9A; margin: 0; }
+  .refresh {
+    height: 32px; padding: 0 14px; border-radius: 16px; cursor: pointer;
+    background: transparent; border: 1.5px solid #263039; color: #9AA7B4;
+    font-size: 12.5px; font-family: inherit;
+  }
+  .refresh:active { background: #1D252E; color: #C9D5E0; }
+  .empty { font-size: 12.5px; color: #6F8091; padding: 16px 2px; }
+
+  /* 横屏手机 / 平板：留白放宽一点，别让内容贴着边 */
+  @media (min-width: 700px) {
+    body { padding-left: 24px; padding-right: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>车机文件传输</h1>
+<p class="sub">上传的文件保存在车机 /sdcard/车机传输/</p>
+
+<label class="pick" for="f">
+  <span class="plus">+</span>
+  <span class="pick-text">
+    <span class="pick-title">点这里选择文件</span>
+    <span class="pick-hint">可多选，会按顺序一个个传</span>
+  </span>
+  <input type="file" id="f" multiple>
+</label>
+<div id="queue"></div>
+
+<div class="section">
+  <h2>车机上已有的文件<span id="count"></span></h2>
+  <button class="refresh" id="refresh" type="button">刷新</button>
+</div>
+<div id="list"></div>
+
+<script>
+(function () {
+  var queueBox = document.getElementById('queue');
+  var listBox = document.getElementById('list');
+  var countEl = document.getElementById('count');
+  var pending = [];
+  var busy = false;
+
+  /** 「上膛」窗口：点一下删除后，只有这么久之内再点才算数。嫌快就改这一个数。 */
+  var CONFIRM_MS = 1000;
+  /** 当前上膛的那一行，同一时刻只允许一行。 */
+  var armed = null;
+
+  function disarmArmed() {
+    var restore = armed;
+    armed = null;
+    if (restore) restore();
+  }
+
+  function human(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+    return (n / 1073741824).toFixed(2) + ' GB';
+  }
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function clear(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+  }
+
+  function reason(status) {
+    if (status === 413) return '文件太大';
+    if (status === 507) return '车机空间不足';
+    if (status === 400) return '传输中断';
+    if (status === 500) return '写入失败';
+    return '失败 ' + status;
+  }
+
+  /* ------------------------------------------------------------ 上传 */
+
+  function uploadRow(name, size) {
+    var box = el('div', 'item');
+    var row = el('div', 'row');
+    var meta = el('div', 'meta');
+    meta.appendChild(el('div', 'name', name));
+    var sizeEl = el('div', 'size', size);
+    meta.appendChild(sizeEl);
+    row.appendChild(meta);
+    box.appendChild(row);
+
+    var bar = el('div', 'bar');
+    var fill = el('i');
+    bar.appendChild(fill);
+    box.appendChild(bar);
+
+    queueBox.appendChild(box);
+    return { size: sizeEl, fill: fill };
+  }
+
+  function upload(file, done) {
+    var row = uploadRow(file.name, human(file.size));
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', '/upload?name=' + encodeURIComponent(file.name));
+    // 没有超时的话，手机走出热点范围时这个请求会挂到 TCP 自己放弃，
+    // busy 一直是 true，后面排队的文件全部卡死，只能刷新页面重来
+    xhr.timeout = 120000;
+    xhr.upload.onprogress = function (e) {
+      // 空文件 total 是 0，直接除会得到 NaN%
+      if (e.lengthComputable) {
+        row.fill.style.width = (e.total ? (e.loaded / e.total * 100) : 100) + '%';
+      }
+    };
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        row.fill.style.width = '100%';
+        row.size.textContent = '已传完';
+        row.size.className = 'size ok';
+        loadList();
+      } else {
+        row.size.textContent = reason(xhr.status);
+        row.size.className = 'size err';
+      }
+      done();
+    };
+    xhr.onerror = function () { row.size.textContent = '连接中断'; row.size.className = 'size err'; done(); };
+    xhr.ontimeout = function () { row.size.textContent = '超时，请重试'; row.size.className = 'size err'; done(); };
+    xhr.onabort = function () { row.size.textContent = '已取消'; row.size.className = 'size err'; done(); };
+    xhr.send(file);
+  }
+
+  function pump() {
+    if (busy) return;
+    var next = pending.shift();
+    if (!next) return;
+    busy = true;
+    try {
+      upload(next, function () { busy = false; pump(); });
+    } catch (err) {
+      // send() 自己抛异常时 done 永远不会被调，busy 会一直锁着，整队卡死
+      busy = false;
+    }
+  }
+
+  document.getElementById('f').addEventListener('change', function (e) {
+    var files = e.target.files;
+    for (var i = 0; i < files.length; i++) pending.push(files[i]);
+    e.target.value = '';
+    pump();
+  });
+
+  /* ------------------------------------------------------------ 文件列表 */
+
+  function fileRow(name, size) {
+    var box = el('div', 'item');
+    var row = el('div', 'row');
+
+    var meta = el('div', 'meta');
+    var nameEl = el('div', 'name', name);
+    nameEl.title = name;
+    meta.appendChild(nameEl);
+    meta.appendChild(el('div', 'size', size));
+
+    var acts = el('div', 'acts');
+    row.appendChild(meta);
+    row.appendChild(acts);
+    box.appendChild(row);
+
+    var timer = null;
+
+    function restore() {
+      if (timer) { clearTimeout(timer); timer = null; }
+      box.className = 'item';
+      var line = box.querySelector('.timer');
+      if (line) box.removeChild(line);
+      clear(acts);
+
+      var dl = el('a', 'act', '下载');
+      dl.setAttribute('href', '/download?name=' + encodeURIComponent(name));
+      dl.setAttribute('download', name);
+
+      var del = el('button', 'act danger', '删除');
+      del.type = 'button';
+      del.onclick = arm;
+
+      acts.appendChild(dl);
+      acts.appendChild(del);
+    }
+
+    /**
+     * 点「删除」先进上膛状态：整张卡变红、下载键消失、只剩一个确认键，
+     * 底部一条红线走完 1 秒就自己收回。1 秒内再点才真删。
+     *
+     * <p>不做系统 confirm：那个框在 iOS / 安卓各家浏览器里长得完全不一样，
+     * 而且会把文件名和确认动作分开，反而更容易删错。</p>
+     */
+    function arm() {
+      disarmArmed();
+      clear(acts);
+      box.className = 'item armed';
+
+      var yes = el('button', 'act danger wide', '确认删除');
+      yes.type = 'button';
+      yes.onclick = function () {
+        if (timer) { clearTimeout(timer); timer = null; }
+        armed = null;
+        sendDelete(name, acts);
+      };
+      acts.appendChild(yes);
+
+      // 红线走完 1 秒 = 窗口关闭，让「还剩多久」看得见而不是凭感觉
+      var line = el('div', 'timer');
+      line.appendChild(el('i'));
+      box.appendChild(line);
+      setTimeout(function () { line.firstChild.style.width = '0%'; }, 20);
+
+      timer = setTimeout(function () { armed = null; restore(); }, CONFIRM_MS);
+      armed = restore;
+    }
+
+    restore();
+    return box;
+  }
+
+  function sendDelete(name, acts) {
+    clear(acts);
+    acts.appendChild(el('span', 'pending', '删除中…'));
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('DELETE', '/file?name=' + encodeURIComponent(name));
+    xhr.timeout = 15000;
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        loadList();
+      } else {
+        acts.textContent = xhr.status === 404 ? '文件已不在' : '删除失败';
+        setTimeout(loadList, 900);
+      }
+    };
+    xhr.onerror = function () { acts.textContent = '连不上车机'; setTimeout(loadList, 900); };
+    xhr.ontimeout = function () { acts.textContent = '超时'; setTimeout(loadList, 900); };
+    xhr.send();
+  }
+
+  function loadList() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/files');
+    xhr.timeout = 15000;
+    xhr.onload = function () {
+      if (xhr.status !== 200) {
+        renderError('读取失败 ' + xhr.status);
+        return;
+      }
+      var files;
+      try { files = JSON.parse(xhr.responseText); } catch (err) { renderError('数据解析失败'); return; }
+
+      // 列表要重建了，先把还举着的「上膛」状态收回去，否则它的定时器会打到已经移除的行上
+      disarmArmed();
+      clear(listBox);
+      countEl.textContent = files.length ? '（' + files.length + '）' : '';
+      if (!files.length) {
+        listBox.appendChild(el('div', 'empty', '还没有文件，上面选一个传上来吧'));
+        return;
+      }
+      for (var i = 0; i < files.length; i++) {
+        listBox.appendChild(fileRow(files[i].name, human(files[i].size)));
+      }
+    };
+    xhr.onerror = function () { renderError('连不上车机，请确认还连着热点'); };
+    xhr.ontimeout = function () { renderError('车机没有响应'); };
+    xhr.send();
+  }
+
+  function renderError(text) {
+    clear(listBox);
+    countEl.textContent = '';
+    listBox.appendChild(el('div', 'empty', text));
+  }
+
+  document.getElementById('refresh').addEventListener('click', loadList);
+
+  loadList();
+})();
+</script>
+</body>
+</html>
