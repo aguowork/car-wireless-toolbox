@@ -1,163 +1,91 @@
 # 车机无线助手
 
-一个给 **BYD MX9 车机（Android 4.2.2）** 写的热点管理 + 文件互传小工具。
+为 **BYD MX9 · Android 4.2.2** 车机设计的热点管理与局域网文件互传工具。打开热点、修改名称和密码、查看连接设备，以及用手机浏览器上传和下载文件，都可以在一个界面中完成。
 
-车机没有应用商店，想开热点得翻进系统设置，想往车机里塞个 APK 得拔 U 盘。这个应用把这两件事做成了两个按钮。
+纯 Java 与系统控件，无第三方依赖。v2.9.9 安装包约 **63.2 KiB**，无需账号，文件通过局域网直接传输。
 
-- **热点**：一键开关、改名称密码、查看已连设备、开机自动开
-- **传文件**：车机开热点，手机浏览器打开卡片上的地址，双向传、可删除
+**[下载 v2.9.9](https://github.com/aguowork/car-wireless-toolbox/releases/tag/v2.9.9)** · [所有版本](https://github.com/aguowork/car-wireless-toolbox/releases) · [开发文档](docs/DEVELOPMENT.md) · [签名配置](docs/SIGNING.md) · [更新记录](CHANGELOG.md)
 
-整个应用 **64 KB**，纯 Java + 系统控件，无第三方依赖、无网络请求、无后台常驻。
+## 下载与安装
 
----
+在 [Releases](https://github.com/aguowork/car-wireless-toolbox/releases) 的 **Assets** 中下载 `车机无线助手-v2.9.9.apk`，通过 U 盘或已有的传输方式复制到车机，再使用车机的安装器安装。
 
-## 兼容性
-
-| 系统 | 能装 | 热点 | 文件传输 |
-|---|---|---|---|
-| Android 4.2 – 5.1（API 17–22） | ✅ | ✅ | ✅ |
-| Android 6.0 – 7.1（API 23–25） | ✅ | ⚠️ | ❌ 无运行时权限 |
-| Android 8.0+（API 26+） | ✅ | ❌ 隐藏 API 已移除 | ❌ |
-
-不是"忘了兼容"——目标设备只有一台停在 4.2.2 的车机。开热点依赖 `WifiManager.setWifiApEnabled`，这个方法在 8.0 从 AOSP 移除，普通应用没有替代路径。**换新系统等于重做热点这一层，不是加兼容分支能解决的。**
-
----
-
-## 快速开始
+如果车机已连接 ADB，也可以运行：
 
 ```bash
+adb install -r "车机无线助手-v2.9.9.apk"
+```
+
+覆盖安装需要新旧 APK 使用相同签名。自行构建的安装包与本项目发布包签名不同，处理方式见[签名配置](docs/SIGNING.md#覆盖安装与签名不一致)。
+
+## 功能与使用
+
+应用采用横屏三卡片布局，目标屏幕为 **1024 × 600，density 160**。
+
+| 卡片 | 功能 | 操作 |
+| --- | --- | --- |
+| 左侧：热点开关 | 开启、关闭热点；设置开机自启 | 点击圆环切换，青色表示已开启；使用底部开关设置自启 |
+| 中间：热点配置 | 修改热点名称和密码；查看连接设备 | 点击名称或密码编辑，点击设备数量查看 IP、MAC 和主机名 |
+| 右侧：文件传输 | 手机与车机互传文件 | 开启传输后，使用手机浏览器访问卡片显示的地址 |
+
+### 用手机传文件
+
+1. 在车机上开启热点和文件传输。
+2. 手机连接该热点，在浏览器中打开右侧卡片显示的地址。
+3. 选择文件上传，支持多选，文件按队列依次发送。
+4. 在文件列表中点击下载，或执行删除。**删除需要在 1 秒内再次点击确认**；超时后恢复原状。
+
+文件保存到车机的 `/sdcard/车机传输/`。访问端口优先使用 `8080`，被占用时依次尝试 `8081`、`8088`、`9090`，以界面显示的地址为准。手机提示热点无法上网时，请保持连接；传输不需要互联网。
+
+### 传输限制
+
+| 项目 | 限制 |
+| --- | --- |
+| 单文件大小 | 最大 2 GiB |
+| 存储空间 | 上传前需至少剩余「文件大小 + 200 MiB」 |
+| 文件列表 | 最多显示 200 个文件 |
+| 上传文件名 | 按 UTF-8 限制为 200 字节，尽量保留扩展名 |
+| 文件夹 | 不支持文件夹传输，列表跳过目录 |
+| 删除与批量操作 | 无回收站；列表不支持多选批量下载或删除 |
+
+文件传输使用局域网 HTTP，当前没有独立的登录或鉴权功能。请仅向可信设备提供热点密码，传输结束后关闭文件传输。
+
+## 设备与系统兼容性
+
+本项目主要面向 BYD MX9 的 Android 4.2.2 系统。其他车机 ROM 对热点接口和存储权限的实现可能不同。
+
+| 系统 | 支持情况 |
+| --- | --- |
+| Android 4.2–5.1（API 17–22） | 当前实现的适用范围，其他设备需实机验证 |
+| Android 6.0–7.1（API 23–25） | 未适配运行时权限，文件传输和报告导出可能无法使用 |
+| Android 8.0 及以上（API 26+） | 未适配；旧热点接口和存储机制存在兼容限制 |
+
+安装包的 `minSdk` 为 17，`targetSdk` 为 28；能够安装不代表所有功能可用。
+
+## 从源码构建
+
+当前项目使用 **Gradle 9.5.0、Android Gradle Plugin 8.9.2、Android SDK Platform 35、Build Tools 36.0.0**，已有构建环境使用 **JDK 26**。
+
+1. 安装对应工具，并设置 `JAVA_HOME` 和 `ANDROID_HOME`。
+2. 按[签名配置](docs/SIGNING.md)创建本地 `signing.properties`。
+3. 在项目根目录执行构建：
+
+```powershell
+# Windows PowerShell
+.\gradlew.bat assembleRelease
+```
+
+```bash
+# macOS / Linux
 ./gradlew assembleRelease
-# 产物：app/build/outputs/apk/release/app-release.apk
 ```
 
-**工具链固定为 Gradle 9.5.0 + AGP 8.9.2 + JDK 26**。用 JDK 17 / Gradle 8.11 会报 `class file major version 70`。
+产物位于 `app/build/outputs/apk/release/app-release.apk`。签名模板已公开，实际签名口令和密钥保留在本地。完整环境、源码结构与验证流程见[开发文档](docs/DEVELOPMENT.md)。
 
-### 签名
+## 问题反馈
 
-把 `signing.properties.example` 复制成 `signing.properties` 并填入自己的 keystore：
+可从车机界面导出诊断报告，保存位置为 `/sdcard/CarWirelessToolbox/report-yyyyMMdd-HHmmss.txt`。提交 [Issue](https://github.com/aguowork/car-wireless-toolbox/issues) 时，请附上车机型号、Android 版本、应用版本、操作步骤及相关日志。公开报告前，请检查其中的热点名称、设备 IP 和 MAC 等信息。
 
-```properties
-storeFile=/path/to/your.jks
-storePassword=your_password
-keyAlias=your_alias
-keyPassword=your_password
-```
+## 许可证
 
-必须 **v1 + v2 同时启用，v3/v4 关闭**——Android 4.2.2 只认 v1，而新工具链默认只出 v2。
-
-校验：
-
-```bash
-apksigner verify -v app-release.apk   # 应看到 v1 = true, v2 = true
-```
-
-### 安装
-
-```bash
-adb install -r app-release.apk
-```
-
----
-
-## 使用
-
-界面是三张等宽卡片，没有标题栏——600px 高的屏幕，一条标题栏就要吃掉 76px。
-
-**左卡 · 圆环**：青色=热点开着，灰色=关着。圆环本身就是按钮，点一下切换。底部一行「开机自启」开关。
-
-**中卡 · 热点配置**：上半显示名称和密码，点击可改；页脚是已连设备数，点击看完整列表（IP / MAC / 主机名）。
-
-**右卡 · 文件传输**：开启后在热点网段监听 8080，卡片上显示访问地址。手机连上热点，浏览器打开该地址即可：
-
-- 选文件上传，支持多选，队列串行发送
-- 列表里每个文件可**下载**到手机、可**删除**（点一下变红、1 秒内再点确认）
-- 文件保存在车机 `/sdcard/车机传输/`
-
----
-
-## 文件传输 API
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| `GET` | `/` | 上传页面 |
-| `GET` | `/api/files` | 文件列表 `[{"name":"","size":0}]` |
-| `PUT` | `/upload?name=xxx` | 上传，body 为原始字节流 |
-| `GET` | `/download?name=xxx` | 下载，`Content-Disposition` 保留中文名 |
-| `DELETE` | `/file?name=xxx` | 删除单个文件 |
-
-端口从 8080 起，被占用依次试 8081 → 8088 → 9090，界面显示实际绑定的那个。
-
-**限制**：单文件 2 GB；剩余空间需 ≥ 文件大小 + 200 MB；文件名按 UTF-8 截到 200 字节（ext4 上限 255 字节）。
-
-**安全**：所有接口共用一套名字校验（剥离路径 + `canonicalPath` 前缀校验），`../` 一律 404；删除只允许普通文件，目录不响应。
-
----
-
-## 设计要点
-
-**状态只有一个来源。** 界面不直接调系统接口，全部从 `WirelessService` 的快照读。广播和 2 秒轮询双保险——老车机的状态广播经常丢，只靠广播会出现"界面显示关着、实际开着"。
-
-**所有操作串行执行，且必须回读确认。** `setWifiApEnabled` 返回 `true` 只代表"请求被接受"，不代表热点起来了。开关热点后要轮询 `getWifiApState` 直到状态真的变了，14 秒超时才算失败。
-
-**隐藏 API 只有一个出口。** `setWifiApEnabled` / `getWifiApState` / `getWifiApConfiguration` 全部集中在 `ApBridge`，状态常量也只定义一份——历史上三处各抄一份、数字对不上，排查成本极高。
-
-**上传必须校验收到的字节数。** 客户端正常关闭（FIN）时 `read()` 返回 -1 而不抛异常，只看 `catch` 会把半截文件当成功，用户拿到残包还以为传完了。
-
----
-
-## 项目结构
-
-```
-app/src/main/java/com/carwireless/toolbox/
-├── MainActivity.java      三卡片主界面
-├── ui/                    纯代码绘制：圆环、开关、卡片、图标
-├── wireless/              状态读取与热点/Wi-Fi 控制
-├── core/                  步骤流水线、日志、配置、校验
-├── boot/                  开机自启
-└── transfer/FileServer.java   局域网 HTTP 文件服务
-app/src/main/res/raw/transfer_page.html   手机端页面（单文件，无依赖）
-```
-
-全部界面用代码绘制，没有 XML 布局文件。原因很实际：`density 160` 下 **1dp = 1px**，代码里直接按像素写比在 XML 里反复调 `dp` 直观。
-
----
-
-## 开发约定
-
-**禁用 API 21+ 的方法。** 在 4.2.2 上会直接 `NoSuchMethodError`。每次打包后扫一遍 dex：
-
-```bash
-unzip -o -q app-release.apk -d /tmp/apkcheck && cd /tmp/apkcheck
-for p in setLetterSpacing setElevation setTranslationZ VectorDrawable \
-         postInvalidateOnAnimation "java/util/stream" "java/time/" "String;->join"; do
-  echo "$p : $(grep -c -a -F "$p" classes*.dex | awk -F: '{s+=$2} END{print s+0}')"
-done
-```
-
-全部为 0 才算通过。同样地：不使用 AndroidX、不使用 `java.time`、不使用 stream。
-
-**诊断日志不能省。** 所有关键路径走 `ReportLog`，标签分 `HOTSPOT` / `WIFI` / `传输` / `BOOT` / `CRASH`。密码写入前脱敏。用户报"连不上"时，界面上可以一键导出报告到 `/sdcard/CarWirelessToolbox/`。
-
-**不装车机也能测文件传输。** `FileServer` 不依赖 Android 运行时，用桩编译到桌面 JVM 就能跑真实 HTTP，用 `curl` 和 raw socket 打。已覆盖中文名、同名并发、路径穿越、半截上传、超限、空文件等用例。
-
-更多实现细节见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
-
----
-
-## 已知限制
-
-- 不支持文件夹（目录会被跳过，上传路径会被拍平）
-- 列表最多 200 条
-- 无剩余空间显示
-- 无回收站，删除不可恢复
-- 文件列表不支持多选批量操作（上传时可多选）
-
-换到别的车机上大概率会踩到上面没列出的问题。遇到了可以提 Issue，附上界面上导出的诊断报告最有用——里面有时刻、系统版本和每一步的失败原因。
-
----
-
-## 许可
-
-[MIT](LICENSE)。
-
-个人项目，写给自己车机用的，觉得有用就直接拿去。
+项目采用 [MIT License](LICENSE)，可按许可证使用、修改和分发。
